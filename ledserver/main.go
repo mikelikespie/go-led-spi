@@ -68,8 +68,8 @@ func main() {
 	/// It will buffer one frame of color
 	renderFrameChan := make(chan []Color, pendingBufferCount)
 
-	// go runDemo(renderFrameChan, ledCount)
-	go listen(*listenPort, renderFrameChan, ledCount)
+	go runDemo(renderFrameChan, ledCount)
+	// go listen(*listenPort, renderFrameChan, ledCount)
 
 	lastReportTime := time.Now()
 	framesSinceReport := 0
@@ -108,6 +108,42 @@ func main() {
 		}
 	}
 }
+func handleStandardReadCommand(readBuffer []byte, renderFrameChan chan<- []Color) {
+	var colors = getBuffer()
+
+	defer returnBuffer(colors)
+
+	for i, _ := range colors {
+		offset := i * 3
+
+		if offset+3 > len(readBuffer) {
+			break
+		}
+
+		colors[i] = Color{A: 2, R: readBuffer[offset+0], G: readBuffer[offset+1], B: readBuffer[offset+2]}
+	}
+
+	renderFrameChan <- colors
+}
+
+/// We only have one system specific command. That is to use RGBA instead of RGB
+func handleSystemSpecificCommand(readBuffer []byte, renderFrameChan chan<- []Color) {
+	var colors = getBuffer()
+
+	defer returnBuffer(colors)
+
+	for i, _ := range colors {
+		offset := i * 4
+
+		if offset+4 > len(readBuffer) {
+			break
+		}
+
+		colors[i] = Color{A: readBuffer[offset+3], R: readBuffer[offset+0], G: readBuffer[offset+1], B: readBuffer[offset+2]}
+	}
+
+	renderFrameChan <- colors
+}
 
 func handleConnection(conn net.Conn, renderFrameChan chan<- []Color, ledCount int) {
 	headerBuffer := make([]byte, 4)
@@ -125,6 +161,8 @@ func handleConnection(conn net.Conn, renderFrameChan chan<- []Color, ledCount in
 			log.Println("Didn't read full header. Continuing")
 			return
 		}
+
+		var command = headerBuffer[1]
 
 		var size = int(headerBuffer[2])<<8 | int(headerBuffer[3])
 
@@ -146,20 +184,13 @@ func handleConnection(conn net.Conn, renderFrameChan chan<- []Color, ledCount in
 			bytesRead += count
 		}
 
-		var colors = getBuffer()
-		for i, _ := range colors {
-			offset := i * 3
-
-			if offset+3 > len(readBuffer) {
-				break
-			}
-
-			colors[i] = Color{A: 2, R: readBuffer[offset+0], G: readBuffer[offset+1], B: readBuffer[offset+2]}
+		switch command {
+		case 0:
+			handleStandardReadCommand(readBuffer, renderFrameChan)
+		case 255:
+			handleSystemSpecificCommand(readBuffer, renderFrameChan)
 		}
 
-		renderFrameChan <- colors
-
-		returnBuffer(colors)
 	}
 }
 

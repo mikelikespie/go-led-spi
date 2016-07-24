@@ -2,6 +2,8 @@
 
 Go implementation to drive APA102 LED strips.
 
+Server-side counterpart to [swiftled](https://github.com/mikelikespie/swiftled). Probably compatible with other things that talk [OPC](http://openpixelcontrol.org/).
+
 MIT license.
 
 ## Installation
@@ -15,4 +17,4 @@ Implementation to drive SPI drivers
 
 ## ./ledserver
 
-[OPC implementation
+[OPC](http://openpixelcontrol.org/) server that uses the spi library.
